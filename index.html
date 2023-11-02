@@ -1,39 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
 </head>
+
 <body>
   <h1>Hello india</h1>
   <button onclick="trySampleRequest();">Try sample request</button>
   <button onclick="logOut();">logout</button>
-  <button onclick="tokenValid(JSON.parse(localStorage.getItem('oauth2-test-params')));">check token expiry or not</button>
+  <!-- <button onclick="tokenValid(JSON.parse(localStorage.getItem('oauth2-test-params')));">check token expiry or -->
+    <!-- not</button> -->
   <script>
     var YOUR_CLIENT_ID = '1017034100640-kqvg41auaur2cpp6e1eqch69f83n9em8.apps.googleusercontent.com';
+    var CLIENT_SECRET = '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';
     var YOUR_REDIRECT_URI = 'http://localhost';
+    var AUTHORIZATION_URL = 'https://accounts.google.com/o/oauth2/auth';
+    var TOKEN_URL = 'https://accounts.google.com/o/oauth2/token';
+    var SCOPE = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+    var tokenEndpoint = 'https://oauth2.googleapis.com/token';
     var fragmentString = location.hash.substring(1);
-  
+
+
     // Parse query string to see if page request is coming from OAuth 2.0 server.
     var params = {};
     var regex = /([^&=]+)=([^&]*)/g, m;
     while (m = regex.exec(fragmentString)) {
       params[decodeURIComponent(m[1])] = decodeURIComponent(m[2]);
       var nowTime = Math.round(Date.now() / 1000);
-      Object.assign(params,{created_at:`${nowTime}`})
-      console.log(params);
+      Object.assign(params, { created_at: `${nowTime}` })
+      // console.log(params);
     }
     if (Object.keys(params).length > 0) {
-      localStorage.setItem('oauth2-test-params', JSON.stringify(params) );
+      localStorage.setItem('oauth2-test-params', JSON.stringify(params));
       console.log(params);
 
-      if (params['state'] && params['state'] == 'try_sample_request') {
-        trySampleRequest();
+      if (params['state'] && params['state'] == 'pass-through value') {
+        // trySampleRequest();
+        console.log('params code from server',params.code);
+        exchangeCodeForTokens(params.code)
+        // startOAuthFlow()
+
         console.log("try sample request called ");
       }
     }
-  
+
     // If there's an access token, try an API request.
     // Otherwise, start OAuth 2.0 flow.
     function trySampleRequest() {
@@ -42,16 +55,17 @@
       if (params && params['access_token']) {
         var xhr = new XMLHttpRequest();
         xhr.open('GET',
-            'https://www.googleapis.com/drive/v3/about?fields=user&' +
-            'access_token=' + params['access_token']);
+          'https://www.googleapis.com/drive/v3/about?fields=user&' +
+          'access_token=' + params['access_token'],'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token='+params['access_token']);
         xhr.onreadystatechange = function (e) {
           if (xhr.readyState === 4 && xhr.status === 200) {
             // window.location.href="http://localhost/dashboard/"
-            console.log("Response ",xhr.response);
+            console.log("Response ", xhr.response);
             // revokeAccess(params['access_token']);
           } else if (xhr.readyState === 4 && xhr.status === 401) {
             // Token invalid, so prompt for user permission.
-            oauth2SignIn();
+            console.log("token is expired");
+            // oauth2SignIn();
           }
         };
         xhr.send(null);
@@ -59,29 +73,126 @@
         oauth2SignIn();
       }
     }
-  
+
+    // get refresh token from code in the function
+  // Function to exchange the authorization code for tokens
+  async function exchangeCodeForTokens(authorizationCode) {
+    const requestBody = new URLSearchParams({
+      client_id: YOUR_CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      code: authorizationCode,
+      grant_type: 'authorization_code',
+      redirect_uri: YOUR_REDIRECT_URI,
+    }).toString();
+    try {
+      const response = await fetch(tokenEndpoint, {
+        method: 'POST',
+        body: requestBody,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      const data = await response.json();
+      console.log('Token Exchange Response:', data); // Log the response for debugging
+
+      if (data.error) {
+        console.error('Error exchanging code for tokens:', data.error, data.error_description);
+        // Handle the error here, such as showing a user-friendly message.
+      } else {
+        const accessToken = data.access_token;
+        const refreshToken = data.refresh_token;
+        localStorage.setItem('refresh_token', refreshToken);
+        await getAccessToken();
+
+        // Store the access token and refresh token securely
+        console.log('Access Token:', accessToken);
+
+        // Your further actions with the access token...
+      }
+    } catch (error) {
+      console.error('Error exchanging code for tokens:', error);
+      // Handle the error here, such as showing a user-friendly message.
+    }
+  }
+async function getAccessToken() {
+  console.log("getting access token")
+  let accessToken = localStorage.getItem('access_token');
+
+  if (accessToken) {
+    // Check if the access token is expired
+    const expirationTime = localStorage.getItem('access_token_expires_at');
+    if (expirationTime && Date.now() < parseInt(expirationTime, 10)) {
+      console.log('Access token is available and not expired.');
+      return accessToken;
+    }
+  }
+
+  console.log('Access token is not available or expired. Requesting a new one...');
+
+  // Request a new access token using the refresh token
+  try {
+    const requestBody = new URLSearchParams({
+      client_id: YOUR_CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: localStorage.getItem('refresh_token'),
+      grant_type: 'refresh_token',
+      scope: SCOPE,
+    }).toString();
+
+    const response = await fetch(tokenEndpoint, {
+      method: 'POST',
+      body: requestBody,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+
+    const tokenData = await response.json();
+    if (tokenData.access_token) {
+      accessToken = tokenData.access_token;
+
+      // Store the new access token and its expiration time
+      const expiresIn = tokenData.expires_in;
+      const expirationTime = Date.now() + expiresIn * 1000;
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('access_token_expires_at', expirationTime.toString());
+
+      console.log('New access token obtained successfully.');
+      return accessToken;
+    } else {
+      console.log('Failed to obtain a new access token:', tokenData);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error refreshing access token:', error);
+    return null;
+  }
+}
+
+
     /*
      * Create form to request access token from Google's OAuth 2.0 server.
      */
     function oauth2SignIn() {
       // Google's OAuth 2.0 endpoint for requesting an access token
       var oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
-  
+
       // Create element to open OAuth 2.0 endpoint in new window.
       var form = document.createElement('form');
       form.setAttribute('method', 'GET'); // Send as a GET request.
       form.setAttribute('action', oauth2Endpoint);
-  
+
       // Parameters to pass to OAuth 2.0 endpoint.
-      var params = {'client_id': '1017034100640-kqvg41auaur2cpp6e1eqch69f83n9em8.apps.googleusercontent.com',
-                    'redirect_uri': 'http://localhost',
-                    'scope': "https://www.googleapis.com/auth/spreadsheets \
-                    https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file \
-                    https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
-                    'state': 'try_sample_request',
-                    'include_granted_scopes': 'true',
-                    'response_type': 'token'};
-      // Add form parameters as hidden input values.
+      var params = {
+        'client_id': `${YOUR_CLIENT_ID}`,
+        'redirect_uri': `${YOUR_REDIRECT_URI}`,
+        'scope': `${SCOPE}`,
+        'state': 'pass-through value',
+        'include_granted_scopes': 'true',
+        'response_type': 'code token',
+        'access_type': 'offline'
+      };
       for (var p in params) {
         var input = document.createElement('input');
         input.setAttribute('type', 'hidden');
@@ -89,21 +200,21 @@
         input.setAttribute('value', params[p]);
         form.appendChild(input);
       }
-  
+
       // Add form to page and submit it to open the OAuth 2.0 endpoint.
       document.body.appendChild(form);
       form.submit();
     }
     var token = JSON.parse(localStorage.getItem('oauth2-test-params'));
-    console.log(token);
-        function logOut() {
-          // revokeAccess(token);
+    // console.log(token);
+    function logOut() {
+      // revokeAccess(token);
       localStorage.removeItem('oauth2-test-params');
       window.location.href = "index.html";
     };
 
-var nowTime = Math.round(Date.now() / 1000);
-console.log('now time :',nowTime);
+    var nowTime = Math.round(Date.now() / 1000);
+    // console.log('now time :', nowTime);
     function tokenValid(token) {
       // console.log(token);
       // const now = Date.now() / 1000;
@@ -111,36 +222,12 @@ console.log('now time :',nowTime);
       // var nowTime = new Date().getTime() /1000;
       const expiry = token.created_at + token.expires_in;
       if (nowTime < expiry) {
-        console.log('Token is not expired',expiry); 
+        console.log('Token is not expired', expiry);
       }
       else
-      console.log('Token expired',);
+        console.log('Token expired',);
     }
-
-
-    // function revokeAccess(accessToken) {
-    //   // Google's OAuth 2.0 endpoint for revoking access tokens.
-    //   console.log("revoke function called");
-    //   var revokeTokenEndpoint = 'https://oauth2.googleapis.com/revoke?token={'+accessToken+'}';
-
-    //   // Create <form> element to use to POST data to the OAuth 2.0 endpoint.
-    //   var form = document.createElement('form');
-    //   form.setAttribute('method', 'post');
-    //   form.setAttribute('action', revokeTokenEndpoint);
-
-    //   // Add access token to the form so it is set as value of 'token' parameter.
-    //   // This corresponds to the sample curl request, where the URL is:
-    //   // https://oauth2.googleapis.com/revoke?token={token}
-    //   var tokenField = document.createElement('input');
-    //   tokenField.setAttribute('type', 'hidden');
-    //   tokenField.setAttribute('name', 'token');
-    //   tokenField.setAttribute('value', accessToken);
-    //   form.appendChild(tokenField);
-
-    //   // Add form to page and submit it to actually revoke the token.
-    //   document.body.appendChild(form);
-    //   form.submit();
-    //   }
   </script>
 </body>
+
 </html>
