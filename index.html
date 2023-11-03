@@ -8,13 +8,39 @@
 </head>
 
 <body>
-  <h1>Hello india</h1>
-  <button onclick="oauth2SignIn()">Login</button>
-  <button onclick="trySampleRequest();">Try sample request</button>
-  <button onclick="logOut();">logout</button>
+  <h1>Google oauth 2.0</h1>
+  <div id="login_btn">
+    <button onclick="oauth2SignIn()">Login</button>
+  </div>
+
+  <div id="request_body">
+    <button onclick="trySampleRequest();">Try sample request</button>
+    <button onclick="logOut();">logout</button>
+  </div>
+  <div id="profile_content">
+  </div>
+
   <!-- <button onclick="tokenValid(JSON.parse(localStorage.getItem('oauth2-test-params')));">check token expiry or -->
-    <!-- not</button> -->
+  <!-- not</button> -->
   <script>
+    const loginBtn = document.getElementById('login_btn')
+    const request_btn = document.getElementById('request_body')
+    const profile_content = document.querySelector('#profile_content')
+    let is_login = false;
+    if (localStorage.getItem('oauth2-test-params')) {
+      console.log('user is login ');
+      loginBtn.style.display = 'none'
+      request_btn.style.display = 'block';
+      profile_content.style.display = 'block'
+      is_login = true;
+    }
+    else {
+      console.log('user is logout');
+      request_btn.style.display = 'none';
+      profile_content.style.display = 'none'
+    }
+    console.log(is_login, 'islogin');
+    // request_btn.style.display='none'
     var YOUR_CLIENT_ID = '1017034100640-kqvg41auaur2cpp6e1eqch69f83n9em8.apps.googleusercontent.com';
     var CLIENT_SECRET = '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';
     var YOUR_REDIRECT_URI = 'http://localhost';
@@ -43,8 +69,8 @@
 
       if (params['state'] && params['state'] == 'pass-through value') {
         // trySampleRequest();
-        console.log('params code from server',params.code);
-        exchangeCodeForTokens(params.code)
+        console.log('params code from server', params.code);
+        exchangeCodeForTokens(`${params.code}`)
         // startOAuthFlow()
 
         console.log("try sample request called ");
@@ -55,16 +81,25 @@
     // Otherwise, start OAuth 2.0 flow.
     function trySampleRequest() {
       var params = JSON.parse(localStorage.getItem('oauth2-test-params'));
+      var access_token = JSON.parse(localStorage.getItem('access_token'))
       // console.log("local storage get data :",params);
       if (params && params['access_token']) {
         var xhr = new XMLHttpRequest();
         xhr.open('GET',
-          'https://www.googleapis.com/drive/v3/about?fields=user&access_token=' + params['access_token'],
-          'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token='+params['access_token']);
+          'https://www.googleapis.com/drive/v3/about?fields=user&access_token=' + access_token,
+          'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token=' + access_token);
         xhr.onreadystatechange = function (e) {
           if (xhr.readyState === 4 && xhr.status === 200) {
             // window.location.href="http://localhost/dashboard/"
             console.log("Response ", xhr.response);
+            let res = JSON.parse(xhr.response)
+            if (res) {
+              profile_content.innerHTML = `
+            <img src="${res.user.photoLink}" alt="User profile image">
+            <h2>User Name :${res.user.displayName}</h2>
+            <p>User Email :${res.user.emailAddress}</p>`;
+            }
+            // console.log(res.user.displayName,'user name');
             // revokeAccess(params['access_token']);
           } else if (xhr.readyState === 4 && xhr.status === 401) {
             // Token invalid, so prompt for user permission.
@@ -80,102 +115,111 @@
     }
 
     // get refresh token from code in the function
-  // Function to exchange the authorization code for tokens
-  async function exchangeCodeForTokens(authorizationCode) {
-    const requestBody = new URLSearchParams({
-      client_id: YOUR_CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      code: authorizationCode,
-      grant_type: 'authorization_code',
-      redirect_uri: YOUR_REDIRECT_URI,
-    }).toString();
-    try {
-      const response = await fetch(tokenEndpoint, {
-        method: 'POST',
-        body: requestBody,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
+    // Function to exchange the authorization code for tokens
+    async function exchangeCodeForTokens(authorizationCode) {
+      const requestBody = new URLSearchParams({
+        client_id: YOUR_CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        code: authorizationCode,
+        grant_type: 'authorization_code',
+        redirect_uri: YOUR_REDIRECT_URI,
+      }).toString();
+      try {
+        const response = await fetch(tokenEndpoint, {
+          method: 'POST',
+          body: requestBody,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        });
 
-      const data = await response.json();
-      console.log('Token Exchange Response:', data); // Log the response for debugging
+        const data = await response.json();
+        console.log('Token Exchange Response:', data); // Log the response for debugging
 
-      if (data.error) {
-        console.error('Error exchanging code for tokens:', data.error, data.error_description);
+        if (data.error) {
+          console.error('Error exchanging code for tokens:', data.error, data.error_description);
+          // Handle the error here, such as showing a user-friendly message.
+        } else {
+          const accessToken = data.access_token;
+          const refreshToken = data.refresh_token;
+          localStorage.setItem('refresh_token', JSON.stringify(refreshToken));
+          localStorage.setItem('access_token', JSON.stringify(accessToken));
+          // await getAccessToken();
+          // console.log(is_login,'islogin');
+
+          // Store the access token and refresh token securely
+          console.log('Refresh Token:',refreshToken);
+          console.log('Access Token:', accessToken);
+          // window.location.href=''
+          // Your further actions with the access token...
+        }
+      } catch (error) {
+        console.error('Error exchanging code for tokens:', error);
         // Handle the error here, such as showing a user-friendly message.
-      } else {
-        const accessToken = data.access_token;
-        const refreshToken = data.refresh_token;
-        localStorage.setItem('refresh_token', refreshToken);
-        await getAccessToken();
-
-        // Store the access token and refresh token securely
-        console.log('Access Token:', accessToken);
-        // window.location.href=''
-        // Your further actions with the access token...
       }
-    } catch (error) {
-      console.error('Error exchanging code for tokens:', error);
-      // Handle the error here, such as showing a user-friendly message.
     }
-  }
-async function getAccessToken() {
-  console.log("getting access token")
-  let accessToken = localStorage.getItem('access_token');
+    async function getAccessToken() {
+      console.log("getting access token")
+      let accessToken = localStorage.getItem('access_token');
 
-  if (accessToken) {
-    // Check if the access token is expired
-    const expirationTime = localStorage.getItem('access_token_expires_at');
-    if (expirationTime && Date.now() < parseInt(expirationTime, 10)) {
-      console.log('Access token is available and not expired.');
-      return accessToken;
+      if (accessToken) {
+        // Check if the access token is expired
+        const expirationTime = localStorage.getItem('access_token_expires_at');
+        if (expirationTime && Date.now() < parseInt(expirationTime, 10)) {
+          console.log('Access token is available and not expired.');
+          return accessToken;
+        }
+        console.log(is_login, 'islogin');
+        if (is_login) {
+          loginBtn.style.display = 'none'
+          request_btn.style.display = 'block'
+          profile_content.style.display = 'block'
+        }
+      }
+      else {
+        console.log('Access token is not available or expired. Requesting a new one...');
+
+        // Request a new access token using the refresh token
+        try {
+          const requestBody = new URLSearchParams({
+            client_id: YOUR_CLIENT_ID,
+            client_secret: CLIENT_SECRET,
+            refresh_token: localStorage.getItem('refresh_token'),
+            grant_type: 'refresh_token',
+            scope: SCOPE,
+          }).toString();
+
+          const response = await fetch(tokenEndpoint, {
+            method: 'POST',
+            body: requestBody,
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          });
+
+          const tokenData = await response.json();
+          if (tokenData.access_token) {
+            accessToken = tokenData.access_token;
+
+            // Store the new access token and its expiration time
+            const expiresIn = tokenData.expires_in;
+            const expirationTime = Date.now() + expiresIn * 1000;
+            localStorage.setItem('access_token', JSON.stringify(accessToken));
+            localStorage.setItem('access_token_expires_at', expirationTime.toString());
+
+            console.log('New access token obtained successfully.');
+            return accessToken;
+            trySampleRequest();
+          } else {
+            console.error('Failed to obtain a new access token:', tokenData);
+            return null;
+          }
+        } catch (error) {
+          console.error('Error refreshing access token:', error);
+          return null;
+        }
+      }
     }
-  }
-
-  console.log('Access token is not available or expired. Requesting a new one...');
-
-  // Request a new access token using the refresh token
-  try {
-    const requestBody = new URLSearchParams({
-      client_id: YOUR_CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      refresh_token: localStorage.getItem('refresh_token'),
-      grant_type: 'refresh_token',
-      scope: SCOPE,
-    }).toString();
-
-    const response = await fetch(tokenEndpoint, {
-      method: 'POST',
-      body: requestBody,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-
-    const tokenData = await response.json();
-    if (tokenData.access_token) {
-      accessToken = tokenData.access_token;
-
-      // Store the new access token and its expiration time
-      const expiresIn = tokenData.expires_in;
-      const expirationTime = Date.now() + expiresIn * 1000;
-      localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('access_token_expires_at', expirationTime.toString());
-
-      console.log('New access token obtained successfully.');
-      return accessToken;
-      trySampleRequest();
-    } else {
-      console.error('Failed to obtain a new access token:', tokenData);
-      return null;
-    }
-  } catch (error) {
-    console.error('Error refreshing access token:', error);
-    return null;
-  }
-}
-
 
     /*
      * Create form to request access token from Google's OAuth 2.0 server.
@@ -213,30 +257,41 @@ async function getAccessToken() {
     }
     var token = JSON.parse(localStorage.getItem('oauth2-test-params'));
     // console.log(token);
-   
+
     function logOut() {
       const choice = window.confirm("Are you sure to logout")
       if (choice) {
-      localStorage.clear();
-      window.location.href = "";
-    }
+        localStorage.clear();
+        window.location.href = "http://localhost/dashboard/";
+      }
     };
 
-    // var nowTime = Math.round(Date.now() / 1000);
-    // // console.log('now time :', nowTime);
-    // function tokenValid(token) {
-    //   // console.log(token);
-    //   // const now = Date.now() / 1000;
-    //   var nowTime = Math.round(Date.now() / 1000);
-    //   // var nowTime = new Date().getTime() /1000;
-    //   const expiry = token.created_at + token.expires_in;
-    //   if (nowTime < expiry) {
-    //     console.log('Token is not expired', expiry);
-    //   }
-    //   else
-    //     console.log('Token expired',);
-    // }
+
+    // rewoke access token 
+    function revokeAccess(accessToken) {
+  // Google's OAuth 2.0 endpoint for revoking access tokens.
+  var revokeTokenEndpoint = 'https://oauth2.googleapis.com/revoke';
+
+  // Create <form> element to use to POST data to the OAuth 2.0 endpoint.
+  var form = document.createElement('form');
+  form.setAttribute('method', 'post');
+  form.setAttribute('action', revokeTokenEndpoint);
+
+  // Add access token to the form so it is set as value of 'token' parameter.
+  // This corresponds to the sample curl request, where the URL is:
+  //      https://oauth2.googleapis.com/revoke?token={token}
+  var tokenField = document.createElement('input');
+  tokenField.setAttribute('type', 'hidden');
+  tokenField.setAttribute('name', 'token');
+  tokenField.setAttribute('value', accessToken);
+  form.appendChild(tokenField);
+
+  // Add form to page and submit it to actually revoke the token.
+  document.body.appendChild(form);
+  form.submit();
+}
   </script>
 </body>
 
 </html>
+<!-- Note : Please change redirect url localhost or  localhost:8080 ports -->
