@@ -9,6 +9,7 @@
 
 <body>
   <h1>Hello india</h1>
+  <button onclick="oauth2SignIn()">Login</button>
   <button onclick="trySampleRequest();">Try sample request</button>
   <button onclick="logOut();">logout</button>
   <!-- <button onclick="tokenValid(JSON.parse(localStorage.getItem('oauth2-test-params')));">check token expiry or -->
@@ -111,7 +112,7 @@
 
         // Store the access token and refresh token securely
         console.log('Access Token:', accessToken);
-
+        // window.location.href=''
         // Your further actions with the access token...
       }
     } catch (error) {
@@ -212,10 +213,13 @@ async function getAccessToken() {
     }
     var token = JSON.parse(localStorage.getItem('oauth2-test-params'));
     // console.log(token);
+   
     function logOut() {
-      // revokeAccess(token);
-      localStorage.removeItem('oauth2-test-params');
-      window.location.href = "index.html";
+      const choice = window.confirm("Are you sure to logout")
+      if (choice) {
+      localStorage.clear();
+      window.location.href = "";
+    }
     };
 
     // var nowTime = Math.round(Date.now() / 1000);
