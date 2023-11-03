@@ -20,6 +20,9 @@
     var AUTHORIZATION_URL = 'https://accounts.google.com/o/oauth2/auth';
     var TOKEN_URL = 'https://accounts.google.com/o/oauth2/token';
     var SCOPE = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+    const scopes = "https://www.googleapis.com/auth/spreadsheets \
+              https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file \
+              https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile";
     var tokenEndpoint = 'https://oauth2.googleapis.com/token';
     var fragmentString = location.hash.substring(1);
 
@@ -55,8 +58,8 @@
       if (params && params['access_token']) {
         var xhr = new XMLHttpRequest();
         xhr.open('GET',
-          'https://www.googleapis.com/drive/v3/about?fields=user&' +
-          'access_token=' + params['access_token'],'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token='+params['access_token']);
+          'https://www.googleapis.com/drive/v3/about?fields=user&access_token=' + params['access_token'],
+          'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token='+params['access_token']);
         xhr.onreadystatechange = function (e) {
           if (xhr.readyState === 4 && xhr.status === 200) {
             // window.location.href="http://localhost/dashboard/"
@@ -65,6 +68,7 @@
           } else if (xhr.readyState === 4 && xhr.status === 401) {
             // Token invalid, so prompt for user permission.
             console.log("token is expired");
+            getAccessToken();
             // oauth2SignIn();
           }
         };
@@ -160,8 +164,9 @@ async function getAccessToken() {
 
       console.log('New access token obtained successfully.');
       return accessToken;
+      trySampleRequest();
     } else {
-      console.log('Failed to obtain a new access token:', tokenData);
+      console.error('Failed to obtain a new access token:', tokenData);
       return null;
     }
   } catch (error) {
@@ -213,20 +218,20 @@ async function getAccessToken() {
       window.location.href = "index.html";
     };
 
-    var nowTime = Math.round(Date.now() / 1000);
-    // console.log('now time :', nowTime);
-    function tokenValid(token) {
-      // console.log(token);
-      // const now = Date.now() / 1000;
-      var nowTime = Math.round(Date.now() / 1000);
-      // var nowTime = new Date().getTime() /1000;
-      const expiry = token.created_at + token.expires_in;
-      if (nowTime < expiry) {
-        console.log('Token is not expired', expiry);
-      }
-      else
-        console.log('Token expired',);
-    }
+    // var nowTime = Math.round(Date.now() / 1000);
+    // // console.log('now time :', nowTime);
+    // function tokenValid(token) {
+    //   // console.log(token);
+    //   // const now = Date.now() / 1000;
+    //   var nowTime = Math.round(Date.now() / 1000);
+    //   // var nowTime = new Date().getTime() /1000;
+    //   const expiry = token.created_at + token.expires_in;
+    //   if (nowTime < expiry) {
+    //     console.log('Token is not expired', expiry);
+    //   }
+    //   else
+    //     console.log('Token expired',);
+    // }
   </script>
 </body>
 
