@@ -185,22 +185,27 @@
         // console.log('local refresh token :',loca);
         // Request a new access token using the refresh token
         try {
-          const body = new URLSearchParams({
-            grant_type: 'refresh_token',
-            client_id: YOUR_CLIENT_ID,
-            client_secret: CLIENT_SECRET,
-            refresh_token: localStorage.getItem('refresh_token'),
-            scope: 'offline',
-          }).toString();
-
-          const response = fetch(`https://oauth2.googleapis.com/token`, {
+          // const body =({
+          //   grant_type: 'refresh_token',
+          //   client_id: YOUR_CLIENT_ID,
+          //   client_secret: CLIENT_SECRET,
+          //   refresh_token: localStorage.getItem('refresh_token'),
+          //   scope: 'offline',
+          // }).toString();
+          const body = new FormData();
+          body.append("grant_type", 'refresh_token')
+          body.append("client_id", YOUR_CLIENT_ID)
+          body.append("client_secret", CLIENT_SECRET)
+          body.append("refresh_token", localStorage.getItem('refresh_token'))
+          body.append("scope", 'offline')
+          const response = fetch(tokenEndpoint,{
             body,
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
             },
             method: 'POST',
-          },);
-          const tokenData = await response.json();
+          }.encodeURI);
+          const tokenData = await response.JSON();
           if (tokenData.access_token) {
             accessToken = tokenData.access_token;
 
