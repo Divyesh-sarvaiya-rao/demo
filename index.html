@@ -160,6 +160,7 @@
         // Handle the error here, such as showing a user-friendly message.
       }
     }
+
     async function getAccessToken() {
       console.log("getting access token")
       let accessToken = localStorage.getItem('access_token');
@@ -180,25 +181,25 @@
       }
       // else {
         console.log('Access token is not available or expired. Requesting a new one...');
-
+        // var loca =localStorage.getItem('refresh_token');
+        // console.log('local refresh token :',loca);
         // Request a new access token using the refresh token
         try {
-          const requestBody = new URLSearchParams({
+          const body = new URLSearchParams({
+            grant_type: 'refresh_token',
             client_id: YOUR_CLIENT_ID,
             client_secret: CLIENT_SECRET,
             refresh_token: localStorage.getItem('refresh_token'),
-            grant_type: 'refresh_token',
-            scope: SCOPE,
+            scope: 'offline',
           }).toString();
 
-          const response = await fetch(tokenEndpoint, {
-            method: 'POST',
-            body: requestBody,
+          const response = fetch(`https://oauth2.googleapis.com/token`, {
+            body,
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
             },
-          });
-
+            method: 'POST',
+          },);
           const tokenData = await response.json();
           if (tokenData.access_token) {
             accessToken = tokenData.access_token;
@@ -206,7 +207,7 @@
             // Store the new access token and its expiration time
             const expiresIn = tokenData.expires_in;
             const expirationTime = Date.now() + expiresIn * 1000;
-            localStorage.setItem('access_token', JSON.stringify(accessToken));
+            localStorage.setItem('access_token', accessToken);
             localStorage.setItem('access_token_expires_at', expirationTime.toString());
 
             console.log('New access token obtained successfully.');
