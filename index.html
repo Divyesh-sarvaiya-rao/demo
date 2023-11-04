@@ -81,17 +81,19 @@
     // Otherwise, start OAuth 2.0 flow.
     function trySampleRequest() {
       var params = JSON.parse(localStorage.getItem('oauth2-test-params'));
-      var access_token = JSON.parse(localStorage.getItem('access_token'))
+      var access_token = localStorage.getItem('access_token');
       // console.log("local storage get data :",params);
       if (params && params['access_token']) {
         var xhr = new XMLHttpRequest();
+          //  getAccessToken();
         xhr.open('GET',
-          'https://www.googleapis.com/drive/v3/about?fields=user&access_token=' + access_token,
-          'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token=' + access_token);
+          'https://www.googleapis.com/drive/v3/about?fields=user&access_token=' + `${access_token}`,
+          'https://www.googleapis.com/auth/userinfo.profile?fields=user&access_token=' + `${access_token}`);
         xhr.onreadystatechange = function (e) {
           if (xhr.readyState === 4 && xhr.status === 200) {
             // window.location.href="http://localhost/dashboard/"
             console.log("Response ", xhr.response);
+            console.log('now time : ',Math.round(Date.now() / 1000));
             let res = JSON.parse(xhr.response)
             if (res) {
               profile_content.innerHTML = `
@@ -142,15 +144,15 @@
         } else {
           const accessToken = data.access_token;
           const refreshToken = data.refresh_token;
-          localStorage.setItem('refresh_token', JSON.stringify(refreshToken));
-          localStorage.setItem('access_token', JSON.stringify(accessToken));
-          // await getAccessToken();
+          localStorage.setItem('refresh_token', refreshToken);
+          localStorage.setItem('access_token', accessToken);
+          await getAccessToken();
           // console.log(is_login,'islogin');
 
           // Store the access token and refresh token securely
           console.log('Refresh Token:',refreshToken);
           console.log('Access Token:', accessToken);
-          // window.location.href=''
+          window.location.href='';
           // Your further actions with the access token...
         }
       } catch (error) {
@@ -168,15 +170,15 @@
         if (expirationTime && Date.now() < parseInt(expirationTime, 10)) {
           console.log('Access token is available and not expired.');
           return accessToken;
+          trySampleRequest()
         }
-        console.log(is_login, 'islogin');
         if (is_login) {
           loginBtn.style.display = 'none'
           request_btn.style.display = 'block'
           profile_content.style.display = 'block'
         }
       }
-      else {
+      // else {
         console.log('Access token is not available or expired. Requesting a new one...');
 
         // Request a new access token using the refresh token
@@ -219,7 +221,7 @@
           return null;
         }
       }
-    }
+    // }
 
     /*
      * Create form to request access token from Google's OAuth 2.0 server.
@@ -237,7 +239,7 @@
       var params = {
         'client_id': `${YOUR_CLIENT_ID}`,
         'redirect_uri': `${YOUR_REDIRECT_URI}`,
-        'scope': `${SCOPE}`,
+        'scope': `${scopes}`,
         'state': 'pass-through value',
         'include_granted_scopes': 'true',
         'response_type': 'code token',
@@ -261,35 +263,51 @@
     function logOut() {
       const choice = window.confirm("Are you sure to logout")
       if (choice) {
-        localStorage.clear();
-        window.location.href = "http://localhost/dashboard/";
+        // let accessToken = localStorage.getItem('access_token');
+        // console.log(accessToken);
+        revokeAccess()
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('oauth2-test-params');
+        // window.location.href = "http://localhost/dashboard/";
+      
       }
     };
 
 
     // rewoke access token 
-    function revokeAccess(accessToken) {
-  // Google's OAuth 2.0 endpoint for revoking access tokens.
-  var revokeTokenEndpoint = 'https://oauth2.googleapis.com/revoke';
+    function revokeAccess() {
+    // Google's OAuth 2.0 endpoint for revoking access tokens.
+    var access_token = localStorage.getItem('access_token')
 
-  // Create <form> element to use to POST data to the OAuth 2.0 endpoint.
-  var form = document.createElement('form');
-  form.setAttribute('method', 'post');
-  form.setAttribute('action', revokeTokenEndpoint);
+    // var revokeTokenEndpoint = 'https://oauth2.googleapis.com/revoke?';
+    // // Create <form> element to use to POST data to the OAuth 2.0 endpoint.
+    // var form = document.createElement('form');
+    // form.setAttribute('method', 'post');
+    // form.setAttribute('action', revokeTokenEndpoint);
 
-  // Add access token to the form so it is set as value of 'token' parameter.
-  // This corresponds to the sample curl request, where the URL is:
-  //      https://oauth2.googleapis.com/revoke?token={token}
-  var tokenField = document.createElement('input');
-  tokenField.setAttribute('type', 'hidden');
-  tokenField.setAttribute('name', 'token');
-  tokenField.setAttribute('value', accessToken);
-  form.appendChild(tokenField);
+    // // Add access token to the form so it is set as value of 'token' parameter.
+    // // This corresponds to the sample curl request, where the URL is:
+    // //      https://oauth2.googleapis.com/revoke?token={token}
+    // var tokenField = document.createElement('input');
+    // tokenField.setAttribute('type', 'hidden');
+    // tokenField.setAttribute('name', 'token');
+    // tokenField.setAttribute('value', access_token);
+    // form.appendChild(tokenField);
 
-  // Add form to page and submit it to actually revoke the token.
-  document.body.appendChild(form);
-  form.submit();
-}
+    // // Add form to page and submit it to actually revoke the token.
+    // document.body.appendChild(form);
+    // form.submit();
+    fetch("https://oauth2.googleapis.com/revoke?token="+access_token,{
+      method:'POST',
+      headers:{
+          'Content-type':'application/x-www-form-urlencoded'
+      }
+      })
+      .then((data)=>{
+        location.href='http://localhost/dashboard/'
+      })
+    } 
   </script>
 </body>
 
